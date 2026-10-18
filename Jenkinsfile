@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -8,7 +9,6 @@ pipeline {
 
     environment {
         AWS_REGION = 'ap-south-1'
-        AWS_ACCOUNT_ID = '848504403730'
         ECR_REGISTRY = '848504403730.dkr.ecr.ap-south-1.amazonaws.com'
         FRONTEND_REPO = 'three-tier-frontend'
         BACKEND_REPO = 'three-tier-backend'
@@ -32,6 +32,7 @@ pipeline {
         stage('Build Images') {
             steps {
                 sh '''
+                    set -eu
                     docker build \
                       -t "$ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG" \
                       Application-Code/backend
@@ -53,6 +54,28 @@ pipeline {
 
                     docker push "$ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG"
                     docker push "$ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG"
+                '''
+            }
+        }
+
+        stage('Deploy to EKS') {
+            steps {
+                sh '''
+                    set -eu
+
+                    kubectl set image deployment/api \
+                      api="$ECR_REGISTRY/$BACKEND_REPO:$IMAGE_TAG" \
+                      -n three-tier
+
+                    kubectl set image deployment/frontend \
+                      frontend="$ECR_REGISTRY/$FRONTEND_REPO:$IMAGE_TAG" \
+                      -n three-tier
+
+                    kubectl rollout status deployment/api \
+                      -n three-tier --timeout=180s
+
+                    kubectl rollout status deployment/frontend \
+                      -n three-tier --timeout=180s
                 '''
             }
         }
