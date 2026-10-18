@@ -1,607 +1,653 @@
-# Three-Tier Kubernetes Deployment
-
-Based on tools like docker, kubernetes, Ec2, EKS, ECR, Cloud Formation,  frontend: React js, backend : Node js, Database: Mongo DB     
-
-Project repo reference : https://github.com/LondheShubham153/TWSThreeTierAppChallenge/blob/main/README.md
-
-# Application code - 
-
-The Application-Code directory contains the source code for the Three-Tier Web Application. Dive into this directory to explore the frontend and backend implementations.
-
-# Kubernetes Manifests Files -
-
-The Kubernetes-Manifests-Files directory holds Kubernetes manifests for deploying your application on AWS EKS. Understand and customize these files to suit your project needs.
-
-# Project Details- 
-🛠️ Tools Explored:
-- Docker, AWS CLI for AWS infrastructure
-- EKS Cluster creation & Load Balancer configuration
-- Kubectl, Ingress controller
-- Private ECR repositories for secure image management
-
-# Architecture of Kubernets Project
-
-![image](https://github.com/user-attachments/assets/8ef33172-2f5c-486b-9d69-cf20384a23d7)
-
-
-### Step 1: IAM Configuration
-
-Create a user eks-admin with AdministratorAccess.
-
-![image](https://github.com/user-attachments/assets/e8a7c916-cdd8-48d8-97eb-4cb878a13d5e)
-
-Generate Security Credentials: Access Key and Secret Access Key.
-
-![image](https://github.com/user-attachments/assets/a736221d-1273-42ba-8d63-b1d5a79d15fc)
 
 
 
 
-### Step 2: EC2 Setup
-
-- Launch an Ubuntu instance in your favourite region (eg. region ap-south-1).
-
-![image](https://github.com/user-attachments/assets/bff7b9b5-713b-458c-8304-ef784be064eb)
-![image](https://github.com/user-attachments/assets/31ce0327-fd63-42e6-a946-007692b4f560)
-![image](https://github.com/user-attachments/assets/a7488d22-4649-4798-98b0-8c544731df5a)
-![image](https://github.com/user-attachments/assets/14dd20ad-3f91-40e8-91f4-5e0642b64ac4)
-
-
-SSH into the instance from your local machine.
-
-![image](https://github.com/user-attachments/assets/45d51d57-31df-4a7d-9994-5db5f52089c1)
 
 
 
 
-### Step 3: Install AWS CLI v2
 
-```bash
-sudo -i
-apt update
-apt install unzip -y
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
+
+
+
+
+# Three-Tier Application Deployment on AWS EKS with Jenkins CI/CD
+
+A three-tier web application deployed on Amazon EKS using Docker, Amazon ECR, Kubernetes, and Jenkins. This project demonstrates both **manual deployment** and **automated CI/CD deployment** triggered by GitHub pushes.
+
+## Table of Contents
+
+- [Project Overview](#project-overview)
+- [Architecture](#architecture)
+- [Technology Stack](#technology-stack)
+- [AWS Environment](#aws-environment)
+- [Repository Structure](#repository-structure)
+- [Prerequisites](#prerequisites)
+- [Method 1: Manual Deployment](#method-1-manual-deployment)
+- [Method 2: Automated Deployment with Jenkins](#method-2-automated-deployment-with-jenkins)
+- [Backend Docker Image Optimization](#backend-docker-image-optimization)
+- [Verification and Troubleshooting](#verification-and-troubleshooting)
+- [Rollback](#rollback)
+- [Security Notes](#security-notes)
+
+## Project Overview
+
+This project deploys a three-tier task management application consisting of:
+
+- **Frontend:** React application served by Nginx.
+- **Backend:** Node.js and Express REST API.
+- **Database:** MongoDB for task persistence.
+
+The application runs on Amazon EKS. Docker images are stored in private Amazon ECR repositories, and an AWS Application Load Balancer provides external HTTP access to the application.
+
+The project supports two deployment workflows:
+
+1. **Manual:** Build images, push them to ECR, and update Kubernetes deployments using `kubectl`.
+2. **Automated:** Push changes to GitHub, trigger Jenkins through a webhook, build and push images, and deploy the new image versions to EKS.
+
+## Architecture
+
+```text
+Developer
+    |
+    | Git push
+    v
+GitHub Repository
+    |
+    | Webhook
+    v
+Jenkins on Amazon EC2
+    |
+    | Build Docker images
+    | Tag with Git commit SHA
+    v
+Amazon ECR
+    |
+    | Pull images
+    v
+Amazon EKS
+    |
+    +---- Frontend Deployment (React + Nginx)
+    |
+    +---- Backend Deployment (Node.js API)
+    |
+    +---- MongoDB Deployment
+    |
+    v
+AWS Application Load Balancer
+    |
+    v
+User's Browser
 ```
 
-![image](https://github.com/user-attachments/assets/a7c8e320-d5ad-4b90-9a2e-a49ad5297f00)
+The frontend sends API requests through the load balancer to the backend. The backend connects to MongoDB using Kubernetes service discovery and environment-based configuration.
 
+## Technology Stack
 
+| Component | Technology |
+|---|---|
+| Cloud platform | AWS |
+| Containerization | Docker |
+| Container registry | Amazon ECR |
+| Kubernetes platform | Amazon EKS |
+| CI/CD | Jenkins |
+| Source control | Git and GitHub |
+| Frontend | React and Nginx |
+| Backend | Node.js and Express |
+| Database | MongoDB |
+| External access | AWS Application Load Balancer |
+| Command-line tools | AWS CLI and kubectl |
 
+## AWS Environment
 
-### Step 4: Install Docker
+The current project configuration uses:
 
-```bash
-sudo apt-get update
-sudo apt install docker.io
+| Setting | Value |
+|---|---|
+| AWS Region | `ap-south-1` |
+| EKS cluster | `three-tier-eks` |
+| Kubernetes namespace | `three-tier` |
+| Backend deployment | `api` |
+| Frontend deployment | `frontend` |
+| Database deployment | `mongodb` |
+| Backend port | `3500` |
+| Frontend service port | `80` |
+
+Amazon ECR repositories:
+
+```text
+848504403730.dkr.ecr.ap-south-1.amazonaws.com/three-tier-backend
+
+848504403730.dkr.ecr.ap-south-1.amazonaws.com/three-tier-frontend
 ```
 
-![image](https://github.com/user-attachments/assets/9c43f22d-94d4-4718-a12d-c1782b592741)
+Replace account IDs, cluster names, or resource names if you recreate the infrastructure in another AWS account.
 
+## Repository Structure
 
-
-
-### Step 5: Install kubectl
-
-```bash
-curl -o kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.19.6/2021-01-05/bin/linux/amd64/kubectl
-chmod +x ./kubectl
-sudo mv ./kubectl /usr/local/bin
-kubectl version --short --client
+```text
+.
+├── Application-Code/
+│   ├── backend/
+│   │   ├── Dockerfile
+│   │   ├── .dockerignore
+│   │   ├── package.json
+│   │   ├── package-lock.json
+│   │   ├── index.js
+│   │   ├── db.js
+│   │   ├── models/
+│   │   └── routes/
+│   └── frontend/
+│       └── Dockerfile
+├── Kubernetes-Manifests-file/
+│   ├── Backend/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   ├── Frontend/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   ├── Database/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   └── ingress.yaml
+├── Jenkinsfile
+└── README.md
 ```
 
-![image](https://github.com/user-attachments/assets/80fe0cf6-a5e3-4e96-9450-8bd8c95f05cc)
+The Kubernetes directory may contain additional configuration files, such as secrets and storage manifests, depending on your setup.
 
+## Prerequisites
 
+Before deploying, make sure you have:
 
+- An AWS account and the required IAM permissions.
+- An existing EKS cluster with worker nodes in the `Ready` state.
+- Docker, AWS CLI, kubectl, Git, and Jenkins configured as needed.
+- Two private ECR repositories for the frontend and backend.
+- Kubernetes deployments, services, MongoDB configuration, storage, and required secrets configured in the `three-tier` namespace.
+- Working EKS access from the machine performing the deployment.
 
-### Step 6: Install eksctl
+For Jenkins automation, the Jenkins EC2 instance must also have Docker, AWS CLI, kubectl, Git access, and the necessary permissions to push to ECR and update EKS deployments.
+
+Do not store AWS credentials, database passwords, or Kubernetes secret values in this repository.
+
+---
+
+## Method 1: Manual Deployment
+
+This method builds and publishes Docker images manually, then updates the Kubernetes deployments.
+
+### Step 1: Clone the repository
 
 ```bash
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
-sudo mv /tmp/eksctl /usr/local/bin
-eksctl version
+git clone https://github.com/deepakkine/three-tier-app-deployment-using-jenkins.git
+
+cd three-tier-app-deployment-using-jenkins
 ```
 
-![image](https://github.com/user-attachments/assets/b2bfe6a8-1bb5-4d6a-bcb9-1d91db04c3bc)
+### Step 2: Configure AWS access
 
+Configure AWS credentials using an approved method, such as an EC2 IAM role or an AWS CLI profile.
 
-
-
-
-### Step 7: configure aws
+Check the current identity and region:
 
 ```bash
-aws configure
+aws sts get-caller-identity
+
+aws configure get region
 ```
 
-![image](https://github.com/user-attachments/assets/e8132954-2fb6-42a6-a869-4ac2769aba76)
+If you are using an IAM role on EC2, you generally do not need to store long-lived AWS access keys on the instance.
 
-
-
-
-### Step 8: Setup EKS Cluster
+### Step 3: Connect kubectl to EKS
 
 ```bash
-eksctl create cluster --name three-tier-cluster --region ap-south-1 --node-type t2.medium --nodes-min 2 --nodes-max 2
-aws eks update-kubeconfig --region ap-south-1 --name three-tier-cluster
+aws eks update-kubeconfig \
+  --region ap-south-1 \
+  --name three-tier-eks
+```
+
+Verify cluster access:
+
+```bash
 kubectl get nodes
+
+kubectl get pods -n three-tier
 ```
 
-![image](https://github.com/user-attachments/assets/ec627053-d39b-4879-a439-b0e44d6804f3)
-![image](https://github.com/user-attachments/assets/af4d9ac5-7d21-426a-bcc3-7674b357e533)
+### Step 4: Set the image tag and ECR registry
 
-
-# Now take git clone whole project from given link
-
-![image](https://github.com/user-attachments/assets/662d85a2-7f46-4657-b8e9-b07a0b866b66)
-
+Use a Git commit-based tag so each build can be identified.
 
 ```bash
-git clone https://github.com/LondheShubham153/TWSThreeTierAppChallenge.git
+export AWS_REGION=ap-south-1
+
+export ECR_REGISTRY=848504403730.dkr.ecr.ap-south-1.amazonaws.com
+
+export IMAGE_TAG=$(git rev-parse --short=12 HEAD)
+
+echo "$IMAGE_TAG"
 ```
 
-![image](https://github.com/user-attachments/assets/1102afa5-7933-4536-bc40-233581e6d6f0)
-
-![image](https://github.com/user-attachments/assets/f2597023-6e97-4ef0-a3c3-17cc7dcc6e17)
-
-
-
-### Step 9: Create repositories on AWS ECR and push Image on ECR
-
-![image](https://github.com/user-attachments/assets/d28473e3-a5ae-4f71-9d2a-88ed28e05a95)
-
-![image](https://github.com/user-attachments/assets/64a8cf70-6b0e-4fec-a115-705cb1b5fb5d)
-
-run Bellow command step by step after creating reposotory on ECR
-
-![image](https://github.com/user-attachments/assets/388859ca-fd34-47f5-a919-3c2eecbbbfc9)
-
-create container using already created fronend image
-
+### Step 5: Build the backend image
 
 ```bash
-  docker run -d -p 3000:3000 three-tier-frontend:latest 
+docker build \
+  -t "$ECR_REGISTRY/three-tier-backend:$IMAGE_TAG" \
+  Application-Code/backend
 ```
 
-![image](https://github.com/user-attachments/assets/0613b3f4-babf-4e14-b259-f134a01f65c6)
+The backend Dockerfile uses Node.js Alpine and installs production dependencies only.
 
+### Step 6: Build the frontend image
 
-Setup 3000 port in inbound rule of main instance 
+The frontend needs the correct backend API URL when its React production bundle is built.
 
-![image](https://github.com/user-attachments/assets/92361b10-c484-4d9d-896b-82b3824ceb21)
-
-copy public instance ip : 3000  on crome or any browser
-you will see frontend app
-
-![image](https://github.com/user-attachments/assets/c5435eee-fdff-44ea-a5ed-e7f999e03402)
-
-
-- Create repository on ECR for backend and push Docker image of BACKEND IMAGE
-
-
-  ![image](https://github.com/user-attachments/assets/3d0eddc6-9933-4e20-99ea-65080428b89c)
-
-
-  ![image](https://github.com/user-attachments/assets/67d7feaa-3ed1-42a3-9fff-1bb81aac10ba)
-
-
-  Provide 3500 port in instance security group inbound rule
-  
-  ![image](https://github.com/user-attachments/assets/8bb29266-5548-4d7c-9a66-630a9268da9a)
-
-  Run Docker container using docker image
-
-  ```bash
-  docker run -d -p 3500:3500 three-tier-backend:latest
-  ```
-  - to check backend run successfully or not
-
-  ```bash
-  docker logs backend_container_id
-  ```
-  
-  docker run 
-  ![image](https://github.com/user-attachments/assets/c68f39e0-4dcb-46cb-9a02-d14382ab8417)
-  
-<h5 style="color:red;">Note:</h5>   We will get a error which could not connect  mongo Db Database 
-
-
-### Step 10 : Run Mangodb database using Deployment file
-
-Go to this location on CMD:
-root@ip-172-31-37-93:~/TWSThreeTierAppChallenge/Kubernetes-Manifests-file/Database#  
-
-Create Namespace and update in databse Deployment file
-
- ```bash
-kubectl create namespace three-tier-ns
+```bash
+export FRONTEND_BACKEND_URL="http://YOUR-LOAD-BALANCER-DNS/api/tasks"
 ```
 
-![image](https://github.com/user-attachments/assets/d20e11e2-625e-4150-a796-f347a5815545)
+Replace `YOUR-LOAD-BALANCER-DNS` with the actual DNS name of your load balancer.
 
-
-![image](https://github.com/user-attachments/assets/cbc6a80c-07d8-4200-bd06-eaefbe8fb003)
-
-- Run deployment file of mongodb-database using follwing command
+Build the image:
 
 ```bash
-kubectl apply -f deployment.yaml -n three-tier-ns
-
-kubectl get pods -n three-tier-ns
+docker build \
+  --build-arg REACT_APP_BACKEND_URL="$FRONTEND_BACKEND_URL" \
+  -t "$ECR_REGISTRY/three-tier-frontend:$IMAGE_TAG" \
+  Application-Code/frontend
 ```
 
-![image](https://github.com/user-attachments/assets/0a33d0fc-411c-4958-8f3a-6b53fefe6c34)
- <h5 style="color:red;">Note:</h5>   when u run command get pods, then you can see your POD will be in pending state because, we have to apply secrete file.
-
-
-Note: After run deployment.yml file, please run pv and pvc filr also and make sure namespace we are created alreday three-tier-ns, it will be updated in all yml file.
-
-- Run secrete file using command
-
+### Step 7: Authenticate to Amazon ECR
 
 ```bash
-kubectl apply -f secrets.yaml -n three-tier-ns
-````
-
-<h5 style="color:red;">Note:</h5>  make sure change namespace in secrete.yml file
-
-![image](https://github.com/user-attachments/assets/786662e1-0b65-402f-9de1-1da821bc710b)
-
-<h5 style="color:red;">Note:</h5> After run secrets.yaml your databse pod will be create in running state 
-
-![image](https://github.com/user-attachments/assets/6c367745-5498-4f6b-bba2-d5591b8ed7bf)
-
-
-- Run service.yml file of database
-
-<h5 style="color:red;">Note:</h5>  make sure change namespace in secrete.yml file
-
-![image](https://github.com/user-attachments/assets/4fc5063c-50ac-47ee-a80b-5f5105cb8aa0)
-
-```bash
-kubectl apply -f service.yaml -n three-tier-ns
-
-kubectl get svc -n three-tier-ns
-````
-
-![image](https://github.com/user-attachments/assets/bcd3a7b5-5bf3-472c-bee0-285a0c312b4e)
-
-
-
-### Step 11 : Run Backend deployment.yml and service.yml file 
-
-Go to this location on CMD:
-root@ip-172-31-37-93:~/TWSThreeTierAppChallenge/Kubernetes-Manifests-file/Backend#
-
-<h5 style="color:red;">Note:  open deplyment.yml file and change your Imange ID in file, copy backend-imaage from ECR
-
-  ![image](https://github.com/user-attachments/assets/2a4a873d-1b0a-4625-9476-0298533f4718)
-
-  ![image](https://github.com/user-attachments/assets/85e1426c-b3e9-4b36-a058-c11e6ea4f6d2)
-
-
-  ![image](https://github.com/user-attachments/assets/585d43a6-d649-489e-8ce6-eb714dc8dfa9)
-
-
-<h5 style="color:red;">Note:</h5>  make sure change namespace in secrete.yml file
-
-  ![image](https://github.com/user-attachments/assets/981cfe80-bd04-4b29-be41-9d7e8c2fef64)
-
-
-- Now run deployment.yml file using following command
-
-```bash
-kubectl apply -f deployment.yml -n three-tier-ns
-
-kubectl get deployment -n three-tier-ns
-````
-
-![image](https://github.com/user-attachments/assets/90cc43f7-cf20-4596-9a47-504c8858b928)
-
-
-- Run service.yml file of backend
-
-- <h5 style="color:red;">Note:</h5>  make sure change namespace in secrete.yml file
-
-```bash
-kubectl apply -f service.yml -n three-tier-ns
-
-kubectl get svc -n three-tier-ns
-````
-![image](https://github.com/user-attachments/assets/8a33147e-3c94-4fa9-95a2-02b92dd99a61)
-
-
-- Check your databse connect to your backend
-
-```bash
-kubectl logs (backend-pod-api-name) -n three-tier-ns
-Example-  kubectl logs api-5496b87c8d-c5tcl -n three-tier-ns
+aws ecr get-login-password --region "$AWS_REGION" |
+  docker login \
+    --username AWS \
+    --password-stdin "$ECR_REGISTRY"
 ```
 
-![image](https://github.com/user-attachments/assets/31201bad-2acc-4582-993a-bb30fe9ec53a)
-
-
-
-
-### Step 12 : Run Frontend deployment.yml and service.yml file 
-
-Go to this location on CMD:
-root@ip-172-31-37-93:~/TWSThreeTierAppChallenge/Kubernetes-Manifests-file/Frontend
-
-Note:  open deplyment.yml file and change your Imange ID in file and, copy frontend-imaage from ECR and mention domain name with subdomain
-
-![image](https://github.com/user-attachments/assets/a5fbe2df-52c1-42d7-8a75-c65325c93a2c)
-
-Note:  update backend URL with subdomain (this is for connect to backend form frotend)
-  
-![image](https://github.com/user-attachments/assets/11c001d8-86d4-472e-814c-3035a2565b55)
-
-- Run Deployment.yaml and service.yaml file of frontend
+### Step 8: Push both images to ECR
 
 ```bash
-kubectl apply -f deployment.yml -n three-tier-ns
+docker push "$ECR_REGISTRY/three-tier-backend:$IMAGE_TAG"
 
-kubectl get deployment -n three-tier-ns
-````
-
-```bash
-kubectl apply -f service.yml -n three-tier-ns
-
-kubectl get svc -n three-tier-ns
-````
-
-![image](https://github.com/user-attachments/assets/6fb95572-977b-47e3-aaaf-66ec76d99b21)
-
-<h5 style="color:red;">Note: till now frontend pod is running state , backend and databse is now running properly and connected to each other
-
-![image](https://github.com/user-attachments/assets/e0461422-2681-4db7-bbc6-96da74e1ab75)
-
-
-
-# Step 13 :  To Install AWS Load Balancer and Deploy AWS Load Balancer Controller follow below steps
-
-  ### Steps to setup ingress controller
-
-
-1. create an OIDC provider, use below link and follow steps
-https://docs.aws.amazon.com/eks/latest/userguide/enable-iam-roles-for-service-accounts.html
-
-![image](https://github.com/user-attachments/assets/ee5e124d-4163-4b34-a8ed-568b3e651964)
-
-2. Create IAM role
-
-<h5 style="color:red;">Link :  https://docs.aws.amazon.com/eks/latest/userguide/lbc-manifest.html
-
-```bash
-curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json
-aws iam create-policy \
-    --policy-name AWSLoadBalancerControllerIAMPolicy10 \
-    --policy-document file://iam_policy.json
+docker push "$ECR_REGISTRY/three-tier-frontend:$IMAGE_TAG"
 ```
 
-![image](https://github.com/user-attachments/assets/251e81bf-c07b-4f33-81cf-d966b5ca68e8)
+### Step 9: Update the Kubernetes deployments
 
-
-<h5 style="color:red;">Note:   replace the ARN with policy's ARN below
-
-```bash
-eksctl create iamserviceaccount \
-  --cluster=three-tier-cluster \
-  --namespace=kube-system \
-  --name=aws-load-balancer-controller \
-  --role-name AmazonEKSLoadBalancerControllerRole10 \
-  --attach-policy-arn=arn:aws:iam::590184143627:policy/AWSLoadBalancerControllerIAMPolicy10 \
-  --approve
-```
-
-  ![image](https://github.com/user-attachments/assets/d668f982-1a6d-4c76-a652-df85db34c350)
-
-
-
-3. Install cert manager
-
-```bash   
-kubectl apply \
-    --validate=false \
-    -f https://github.com/jetstack/cert-manager/releases/download/v1.13.5/cert-manager.yaml
-```
-
-![image](https://github.com/user-attachments/assets/5c216c0e-ef1d-4a8b-9a65-3a3e11c72064)
-
-
-4. install AWS load balancer controller
+Update the backend:
 
 ```bash
-curl -Lo v2_7_2_full.yaml https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.7.2/v2_7_2_full.yaml
-
-sed -i.bak -e '612,620d' ./v2_7_2_full.yaml
-
-sed -i.bak -e 's|your-cluster-name|my-cluster|' ./v2_7_2_full.yaml
-
-kubectl apply -f v2_7_2_full.yaml
-
-curl -Lo v2_7_2_ingclass.yaml https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.7.2/v2_7_2_ingclass.yaml
-
-kubectl apply -f v2_7_2_ingclass.yaml
+kubectl set image deployment/api \
+  api="$ECR_REGISTRY/three-tier-backend:$IMAGE_TAG" \
+  -n three-tier
 ```
 
-
-![image](https://github.com/user-attachments/assets/9cfe3af1-9391-4bc3-802c-bc3c5c7fa777)
-
-
-5. verify
+Update the frontend:
 
 ```bash
-kubectl get deployment -n kube-system aws-load-balancer-controller
+kubectl set image deployment/frontend \
+  frontend="$ECR_REGISTRY/three-tier-frontend:$IMAGE_TAG" \
+  -n three-tier
 ```
 
-![image](https://github.com/user-attachments/assets/632379c5-720f-4cc2-ae0e-6755967e649d)
-
-
-![image](https://github.com/user-attachments/assets/1ec39229-9d78-479e-befb-fe676b9d8976)
-
-
-
-
-
-#Step 14: Run Ingress.yaml file
-
-Go to this location on CMD:
-root@ip-172-31-37-93:~/TWSThreeTierAppChallenge/Kubernetes-Manifests-file#
-
-Note : update subdoamin name in ingress.yml file 
+Wait for the rollouts:
 
 ```bash
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: mainlb
-  namespace: three-tier-ns
-  annotations:
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-spec:
-  ingressClassName: alb
-  rules:
-    - host: challenge.akshaydhongade.online
-      http:
-        paths:
-          - path: /api
-            pathType: Prefix
-            backend:
-              service:
-                name: api
-                port:
-                  number: 3500
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: frontend
-                port:
-                  number: 3000
+kubectl rollout status deployment/api \
+  -n three-tier --timeout=180s
+
+kubectl rollout status deployment/frontend \
+  -n three-tier --timeout=180s
 ```
 
+Confirm that the pods are healthy:
 
 ```bash
-kubectl apply -f ingress.yaml -n three-tier-ns
-kubectl get ing -n three-tier-ns
+kubectl get deployments -n three-tier
+
+kubectl get pods -n three-tier
 ```
 
+The MongoDB deployment is not changed by these commands.
 
+---
 
-![image](https://github.com/user-attachments/assets/ab2cde71-6e24-42ab-acda-49f8d45ab9a7)
+## Method 2: Automated Deployment with Jenkins
 
+The Jenkins pipeline automates the checkout, build, push, and deployment steps.
 
-# Step 14: we need to create Hosted zone in Route 53 Aws Service 
+### CI/CD workflow
 
-- create hosted zone
+```text
+Developer pushes code to GitHub
+              |
+              v
+GitHub webhook triggers Jenkins
+              |
+              v
+Checkout source code
+              |
+              v
+Generate Git commit image tag
+              |
+              v
+Build backend and frontend images
+              |
+              v
+Authenticate to Amazon ECR
+              |
+              v
+Push both images to ECR
+              |
+              v
+Update frontend and backend deployments
+              |
+              v
+Wait for Kubernetes rollouts
+              |
+              v
+Pipeline succeeds or reports an error
+```
 
-  ![image](https://github.com/user-attachments/assets/8cfeaf40-6765-4f59-a186-330144b1fb2c)
+### Step 1: Configure the Jenkins EC2 instance
 
-- exchange ns rocords of your hostinger with Route 53 Hosted zone
+Install and configure Jenkins, Docker, AWS CLI, kubectl, and Git on the Jenkins server.
 
-  ex. Hosted zone Ns records   ->  Hostinger ns records
-  
-![image](https://github.com/user-attachments/assets/8bc4c001-f9c0-4d11-a64c-44fe0b766493)
+The Jenkins execution user must be able to run the required commands.
 
-![image](https://github.com/user-attachments/assets/5287bdb6-8ed9-4369-81b9-164be897e3e4)
+Verify the tools:
 
-- Create cname record in hosted zone
-   - provide sub-domain name : (challenge)
-   - provide your address of load balancer (k8s-threetie-mainlb-318ada61f9-1596259174.ap-south-1.elb.amazonaws.co)
-
-![image](https://github.com/user-attachments/assets/40361210-eadc-493a-a7a0-1da672a1f375)
-
-
-
-- Now hit domain name on chrome browser (**challenge.akshaydhongade.online**)
-
-![image](https://github.com/user-attachments/assets/83bb7535-7bbb-4a36-83f2-59b875da1323)
-
-  
-- Create some operations on todo list app
-  
-![image](https://github.com/user-attachments/assets/03f6ee4c-2898-4575-a5fc-24a732863ddb)
-  
-
-# Step 15 : check into your database created entry is exist in database table or not
-
-1) Below Command is use to go inside mongo db pod
-  
 ```bash
-  kubectl exec -it <pod_name> -n <namespace> -- bash
+docker --version
+
+aws --version
+
+kubectl version --client
+
+git --version
 ```
 
-2) After going inside mongo db pod we need to use mongo keyword
+Verify AWS access:
 
 ```bash
-  mongo
+aws sts get-caller-identity
 ```
-3) To see all Databases inside mongo Db Env
 
-   ```bash
-    show dbs
+Verify EKS access using the Jenkins execution user:
+
+```bash
+kubectl get deployments -n three-tier
+```
+
+Use an IAM role or another approved credential mechanism. Grant only the permissions required to build and push images and update the intended Kubernetes resources.
+
+### Step 2: Create the Jenkins pipeline job
+
+In Jenkins:
+
+1. Select **New Item**.
+2. Enter the job name `three-tier-cicd`.
+3. Select **Pipeline**.
+4. Under Pipeline configuration, choose **Pipeline script from SCM**.
+5. Select **Git**.
+6. Configure the repository:
+
+   ```text
+   https://github.com/deepakkine/three-tier-app-deployment-using-jenkins.git
    ```
 
-4) to use specific database use below command
+7. Set the branch to:
 
-    ```bash
-    use todo
-    ```
-5) To see tables inside that specific choees database use below command 
-
-   ```bash
-   show collections
+   ```text
+   */main
    ```
-6) To see Records of table use below command
 
-    ```bash
-   db.tasks.find()
-    ```     
-![image](https://github.com/user-attachments/assets/7534c508-f28c-4afa-8ec4-cb218d171379)  
+8. Set the script path to:
 
-7) Go to frontend and try to delete some todo records and check inside mongo db databse tasks table , entry deleted successfully or not
+   ```text
+   Jenkinsfile
+   ```
 
-    ![image](https://github.com/user-attachments/assets/360284b2-5a69-4e75-9ed7-dae715b284cd)
+9. Save the job.
 
-    ![image](https://github.com/user-attachments/assets/3e0c68ea-51f3-49d0-94df-9837c7dcecca)
+### Step 3: Configure the GitHub webhook
 
-    ![image](https://github.com/user-attachments/assets/526a39a6-20fc-498a-ae1c-b11dd7aad08d)
+In the GitHub repository, open **Settings → Webhooks → Add webhook**.
 
-8) try to add and delete entry and check again
+Configure the webhook URL using your Jenkins public URL:
 
-   ![image](https://github.com/user-attachments/assets/3ea227d2-b633-4489-bb9c-987d1c9508ec)
+```text
+http://YOUR-JENKINS-URL:8080/github-webhook/
+```
 
-   ![image](https://github.com/user-attachments/assets/468d942e-91c9-4f97-b018-25069fcf729f)
+Select JSON as the content type and enable push events.
 
-  ![image](https://github.com/user-attachments/assets/07323085-3e77-437b-9531-86fffbb8be91)
+In Jenkins, enable **GitHub hook trigger for GITScm polling** in the job's build triggers.
 
-  #Project Successfully completed!! 
-                       
+For a production deployment, use HTTPS and restrict access to Jenkins. Do not expose the Jenkins administration interface broadly to the public internet.
 
+### Step 4: Understand the Jenkinsfile stages
 
+The current `Jenkinsfile` defines these stages:
 
+**Checkout**
 
+- Retrieves the source code from SCM.
+- Generates an image tag from the current Git commit.
 
+**Build Images**
 
+- Builds the backend image from `Application-Code/backend`.
+- Builds the frontend image from `Application-Code/frontend`.
+- Supplies the frontend backend API URL as a build argument.
 
+**Push Images to ECR**
 
+- Authenticates to Amazon ECR.
+- Pushes both images using the commit-based tag.
 
+**Deploy to EKS**
 
+- Updates the `api` deployment.
+- Updates the `frontend` deployment.
+- Waits for both rollouts to complete.
 
+**Post**
 
+- Logs out of ECR after the pipeline finishes.
 
+### Step 5: Trigger an automated deployment
 
+Make a change to the application or its configuration.
 
+For example, update a backend file and commit it:
 
+```bash
+git add Application-Code/backend/Dockerfile \
+        Application-Code/backend/.dockerignore
 
+git commit -m "Optimize backend Docker image"
+```
 
+Push the commit:
 
+```bash
+git push origin main
+```
 
+The GitHub webhook should trigger the Jenkins pipeline automatically.
+
+Open the `three-tier-cicd` job in Jenkins and inspect **Console Output**.
+
+A successful run should show that:
+
+- Source code was checked out.
+- Both images were built.
+- Both images were pushed to ECR.
+- The EKS deployment images were updated.
+- The backend and frontend rollouts completed successfully.
+
+The image tag is derived from the Git commit, making it easier to identify which version was deployed.
+
+---
+
+## Backend Docker Image Optimization
+
+The original backend image used Node.js 14 and installed dependencies with `npm install`.
+
+The optimized Dockerfile uses a smaller Alpine-based Node.js image, installs only production dependencies, and runs as a non-root user.
+
+Current backend Dockerfile:
+
+```dockerfile
+FROM node:20-alpine
+
+ENV NODE_ENV=production
+WORKDIR /usr/src/app
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+COPY db.js index.js ./
+COPY models ./models
+COPY routes ./routes
+
+USER node
+
+EXPOSE 3500
+
+CMD ["node", "index.js"]
+```
+
+The backend `.dockerignore` excludes local dependencies, Git metadata, environment files, logs, and coverage output from the build context.
+
+### Image-size comparison
+
+| Image | Reported disk usage | Reported content size |
+|---|---:|---:|
+| Original backend image | 1.37 GB | 354 MB |
+| Optimized backend image | 209 MB | 50.5 MB |
+
+These figures were observed during the local Docker build. Actual image storage can vary depending on Docker version, shared layers, and platform.
+
+The optimized image successfully started and returned HTTP 200 from the `/ok` endpoint during local testing.
+
+The full EKS deployment must also be verified to confirm that the application connects to the real MongoDB service and handles application requests correctly.
+
+**Note:** The build reported npm dependency vulnerabilities. Image-size optimization does not resolve those vulnerabilities; review and update dependencies separately, with regression testing.
+
+---
+
+## Verification and Troubleshooting
+
+### Check Kubernetes resources
+
+```bash
+kubectl get all -n three-tier
+```
+
+### Check backend health
+
+The backend exposes an `/ok` health endpoint.
+
+From a machine that can reach the backend service or load balancer:
+
+```bash
+curl -i http://YOUR-LOAD-BALANCER-DNS/ok
+```
+
+Use the correct route for your ingress configuration. If `/ok` is not routed through the load balancer, test it through the backend service or port-forward instead.
+
+### Check application logs
+
+```bash
+kubectl logs deployment/api -n three-tier
+
+kubectl logs deployment/frontend -n three-tier
+```
+
+### Check rollout status
+
+```bash
+kubectl rollout status deployment/api -n three-tier
+
+kubectl rollout status deployment/frontend -n three-tier
+```
+
+### Inspect a failing pod
+
+```bash
+kubectl get pods -n three-tier
+
+kubectl describe pod POD_NAME -n three-tier
+```
+
+Replace `POD_NAME` with the actual pod name.
+
+### Common problems
+
+| Problem | What to check |
+|---|---|
+| ECR authentication failure | AWS identity, ECR permissions, and region |
+| Image pull failure | Repository name, tag, node permissions, and image pull secret |
+| Jenkins cannot access EKS | kubeconfig and permissions for the Jenkins execution user |
+| Backend cannot connect to MongoDB | `MONGO_CONN_STR`, MongoDB service, and Kubernetes secrets |
+| Frontend cannot call the API | API URL baked into the frontend build and load balancer routing |
+| Rollout fails | Pod events, readiness probes, image tag, and container logs |
+| GitHub push does not trigger Jenkins | Webhook delivery status and Jenkins job trigger configuration |
+
+---
+
+## Rollback
+
+If a deployment fails, inspect the deployment history:
+
+```bash
+kubectl rollout history deployment/api -n three-tier
+
+kubectl rollout history deployment/frontend -n three-tier
+```
+
+Roll back the backend:
+
+```bash
+kubectl rollout undo deployment/api -n three-tier
+```
+
+Roll back the frontend:
+
+```bash
+kubectl rollout undo deployment/frontend -n three-tier
+```
+
+Wait for the rollouts to complete and verify application health.
+
+Keep older image tags in ECR according to your rollback and retention policy. Do not delete images that are still needed for recovery.
+
+---
+
+## Security Notes
+
+- Do not commit AWS access keys, database credentials, `.env` files, or Kubernetes secret values.
+- Use IAM roles and least-privilege permissions for Jenkins and EKS.
+- Protect the Jenkins interface with HTTPS and restrict administrative access.
+- Keep container images and dependencies updated.
+- Use a secure secret-management mechanism for MongoDB credentials.
+- Apply appropriate network access restrictions to EC2, Jenkins, EKS, and the load balancer.
+- Review ECR lifecycle policies before removing old image tags.
+- Test deployments and rollback procedures before using this setup for production workloads.
+
+## Project Outcome
+
+This project demonstrates a three-tier application running on Amazon EKS and two ways to deploy it:
+
+- **Manual deployment:** Build, push, and update Kubernetes deployments using AWS CLI, Docker, ECR, and kubectl.
+- **Automated CI/CD:** Use GitHub webhooks and Jenkins to build commit-tagged images, push them to ECR, and deploy them to EKS.
+
+It also demonstrates Docker image optimization, Kubernetes rollout verification, and basic deployment troubleshooting.
 
 
 
